@@ -1,8 +1,16 @@
 const PDFDocument = require("pdfkit");
 
-const PAGE_MARGIN = 50;
+// 2.54 cm = 72 points (1 cm ≈ 28.3465 pt)
+const PAGE_MARGIN = 72;
 const PAGE_WIDTH = 612; // US Letter, points
 const USABLE_WIDTH = PAGE_WIDTH - PAGE_MARGIN * 2;
+
+// Extra top offset for letterhead space
+const LETTERHEAD_OFFSET = 80;
+
+const FONT_REGULAR = "Times-Roman";
+const FONT_BOLD = "Times-Bold";
+const FONT_SIZE = 12;
 
 // Draws one table row with independent bold/align per column, returns new y.
 function drawRow(doc, x, y, colWidths, cells) {
@@ -10,17 +18,27 @@ function drawRow(doc, x, y, colWidths, cells) {
   let maxH = 22;
   colWidths.forEach((w, i) => {
     const c = cells[i] || { text: "" };
-    doc.font(c.bold ? "Helvetica-Bold" : "Helvetica").fontSize(9.5);
-    const h = doc.heightOfString(String(c.text ?? ""), { width: w - 10, align: c.align || "left" });
+    doc.font(c.bold ? FONT_BOLD : FONT_REGULAR).fontSize(FONT_SIZE);
+    const h = doc.heightOfString(String(c.text ?? ""), {
+      width: w - 10,
+      align: c.align || "left",
+    });
     maxH = Math.max(maxH, h + 12);
   });
 
   let cx = x;
   colWidths.forEach((w, i) => {
     const c = cells[i] || { text: "" };
-    doc.rect(cx, y, w, maxH).stroke();
-    doc.font(c.bold ? "Helvetica-Bold" : "Helvetica").fontSize(9.5).fillColor("black")
-      .text(String(c.text ?? ""), cx + 5, y + 6, { width: w - 10, align: c.align || "left" });
+    // Non-bold table borders (thin line)
+    doc.lineWidth(0.5).rect(cx, y, w, maxH).stroke();
+    doc
+      .font(c.bold ? FONT_BOLD : FONT_REGULAR)
+      .fontSize(FONT_SIZE)
+      .fillColor("black")
+      .text(String(c.text ?? ""), cx + 5, y + 6, {
+        width: w - 10,
+        align: c.align || "left",
+      });
     cx += w;
   });
   return y + maxH;
@@ -38,18 +56,27 @@ function checkPageBreak(doc, y, needed) {
 function generatePdfBuffer(data) {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: "LETTER", margin: PAGE_MARGIN, bufferPages: true });
+      const doc = new PDFDocument({
+        size: "LETTER",
+        margin: PAGE_MARGIN,
+        bufferPages: true,
+      });
       const chunks = [];
       doc.on("data", (c) => chunks.push(c));
       doc.on("end", () => resolve(Buffer.concat(chunks)));
       doc.on("error", reject);
 
-      let y = PAGE_MARGIN;
+      let y = PAGE_MARGIN + LETTERHEAD_OFFSET;
       const x = PAGE_MARGIN;
 
       // ---- Title ----
-      doc.font("Helvetica-Bold").fontSize(16)
-        .text("Transcript Certificate", x, y, { width: USABLE_WIDTH, align: "center" });
+      doc
+        .font(FONT_BOLD)
+        .fontSize(FONT_SIZE)
+        .text("Transcript Certificate", x, y, {
+          width: USABLE_WIDTH,
+          align: "center",
+        });
       y += 32;
 
       // ---- Info table ----
@@ -59,33 +86,33 @@ function generatePdfBuffer(data) {
 
       y = drawRow(doc, x, y, [labelW, valW], [
         { text: "Name of the Student", bold: true },
-        { text: data.studentName || "" }
+        { text: data.studentName || "" },
       ]);
       y = drawRow(doc, x, y, [labelW, valW], [
         { text: "Program Name", bold: true },
-        { text: data.programName || "" }
+        { text: data.programName || "" },
       ]);
       y = drawRow(doc, x, y, [labelW, valW], [
         { text: "Program Duration", bold: true },
-        { text: data.programDuration || "" }
+        { text: data.programDuration || "" },
       ]);
       y = drawRow(doc, x, y, [labelW, halfValW, halfValW], [
         { text: "Program Date", bold: true },
         { text: "Start Date", bold: true, align: "center" },
-        { text: "End Date", bold: true, align: "center" }
+        { text: "End Date", bold: true, align: "center" },
       ]);
       y = drawRow(doc, x, y, [labelW, halfValW, halfValW], [
         { text: "" },
         { text: data.startDate || "" },
-        { text: data.endDate || "" }
+        { text: data.endDate || "" },
       ]);
       y = drawRow(doc, x, y, [labelW, valW], [
         { text: "Overall Grade", bold: true },
-        { text: data.overallGrade || "" }
+        { text: data.overallGrade || "" },
       ]);
       y = drawRow(doc, x, y, [labelW, valW], [
         { text: "Final Result", bold: true },
-        { text: data.finalResult || "" }
+        { text: data.finalResult || "" },
       ]);
 
       y += 20;
@@ -101,7 +128,7 @@ function generatePdfBuffer(data) {
           { text: "Total Marks", bold: true, align: "center" },
           { text: "Pass Marks", bold: true, align: "center" },
           { text: "Marks Gained", bold: true, align: "center" },
-          { text: "Grade", bold: true, align: "center" }
+          { text: "Grade", bold: true, align: "center" },
         ]);
         (data.rows || []).forEach((r, i) => {
           y = checkPageBreak(doc, y, 24);
@@ -112,7 +139,7 @@ function generatePdfBuffer(data) {
             { text: r.totalMarks || "", align: "center" },
             { text: r.passMarks || "", align: "center" },
             { text: r.marksGained || "", align: "center" },
-            { text: r.grade || "", align: "center" }
+            { text: r.grade || "", align: "center" },
           ]);
         });
       } else {
@@ -124,7 +151,7 @@ function generatePdfBuffer(data) {
           { text: "Attendance", bold: true, align: "center" },
           { text: "Participation", bold: true, align: "center" },
           { text: "Assignment", bold: true, align: "center" },
-          { text: "Overall Grade", bold: true, align: "center" }
+          { text: "Overall Grade", bold: true, align: "center" },
         ]);
         (data.rows || []).forEach((r, i) => {
           y = checkPageBreak(doc, y, 24);
@@ -134,7 +161,7 @@ function generatePdfBuffer(data) {
             { text: r.attendance || "", align: "center" },
             { text: r.participation || "", align: "center" },
             { text: r.assignment || "", align: "center" },
-            { text: r.overallGrade || "", align: "center" }
+            { text: r.overallGrade || "", align: "center" },
           ]);
         });
       }
@@ -142,12 +169,12 @@ function generatePdfBuffer(data) {
       y += 60;
       y = checkPageBreak(doc, y, 80);
 
-      doc.font("Helvetica-Bold").fontSize(10.5).text(data.signatoryName || "", x, y);
+      doc.font(FONT_BOLD).fontSize(FONT_SIZE).text(data.signatoryName || "", x, y);
       y += 16;
-      doc.font("Helvetica").fontSize(10.5).text(data.signatoryTitle || "", x, y);
+      doc.font(FONT_REGULAR).fontSize(FONT_SIZE).text(data.signatoryTitle || "", x, y);
       y += 22;
-      doc.font("Helvetica-Bold").fontSize(10.5).text("Date: ", x, y, { continued: true });
-      doc.font("Helvetica").text(data.issueDate || "");
+      doc.font(FONT_BOLD).fontSize(FONT_SIZE).text("Date: ", x, y, { continued: true });
+      doc.font(FONT_REGULAR).text(data.issueDate || "");
 
       doc.end();
     } catch (err) {
