@@ -27,13 +27,15 @@ function cellHeight(doc, text, width, font, size, align) {
 // Draw a single bordered cell
 function drawCell(doc, x, y, w, h, cell) {
   doc.lineWidth(0.5).rect(x, y, w, h).stroke();
+  const size = cell.size || FONT_SIZE;
   doc
     .font(cell.bold ? FONT_BOLD : FONT_REGULAR)
-    .fontSize(FONT_SIZE)
+    .fontSize(size)
     .fillColor("black")
     .text(String(cell.text ?? ""), x + CELL_PAD_X, y + CELL_PAD_Y, {
       width: w - CELL_PAD_X * 2,
       align: cell.align || "left",
+      lineBreak: cell.nowrap ? false : true,
     });
 }
 
@@ -43,7 +45,14 @@ function drawRow(doc, x, y, colWidths, cells) {
   colWidths.forEach((w, i) => {
     const c = cells[i] || { text: "" };
     const h =
-      cellHeight(doc, c.text, w, c.bold ? FONT_BOLD : FONT_REGULAR, FONT_SIZE, c.align) +
+      cellHeight(
+        doc,
+        c.text,
+        w,
+        c.bold ? FONT_BOLD : FONT_REGULAR,
+        c.size || FONT_SIZE,
+        c.align
+      ) +
       CELL_PAD_Y * 2;
     maxH = Math.max(maxH, h);
   });
@@ -59,13 +68,19 @@ function drawRow(doc, x, y, colWidths, cells) {
 // Draw a row where some cells span multiple columns.
 // spans: array of { col, span, cell } — col is 0-based index into colWidths
 function drawRowSpans(doc, x, y, colWidths, spans) {
-  // compute total height using each span's effective width
   let maxH = 22;
   spans.forEach((s) => {
     const w = colWidths.slice(s.col, s.col + s.span).reduce((a, b) => a + b, 0);
     const c = s.cell || { text: "" };
     const h =
-      cellHeight(doc, c.text, w, c.bold ? FONT_BOLD : FONT_REGULAR, FONT_SIZE, c.align) +
+      cellHeight(
+        doc,
+        c.text,
+        w,
+        c.bold ? FONT_BOLD : FONT_REGULAR,
+        c.size || FONT_SIZE,
+        c.align
+      ) +
       CELL_PAD_Y * 2;
     maxH = Math.max(maxH, h);
   });
@@ -121,27 +136,27 @@ function generatePdfBuffer(data) {
 
       // Name of the Student | value (span 2)
       y = drawRowSpans(doc, x, y, infoW, [
-        { col: 0, span: 1, cell: { text: "Name of the Student", bold: true } },
+        { col: 0, span: 1, cell: { text: "Name of the Student", bold: true, nowrap: true } },
         { col: 1, span: 2, cell: { text: data.studentName || "" } },
       ]);
 
       // Program Name | value (span 2)
       y = drawRowSpans(doc, x, y, infoW, [
-        { col: 0, span: 1, cell: { text: "Program Name", bold: true } },
+        { col: 0, span: 1, cell: { text: "Program Name", bold: true, nowrap: true } },
         { col: 1, span: 2, cell: { text: data.programName || "" } },
       ]);
 
       // Program Duration | value (span 2)
       y = drawRowSpans(doc, x, y, infoW, [
-        { col: 0, span: 1, cell: { text: "Program Duration", bold: true } },
+        { col: 0, span: 1, cell: { text: "Program Duration", bold: true, nowrap: true } },
         { col: 1, span: 2, cell: { text: data.programDuration || "" } },
       ]);
 
       // Program Date | Start Date | End Date  (header row)
       y = drawRowSpans(doc, x, y, infoW, [
-        { col: 0, span: 1, cell: { text: "Program Date", bold: true } },
-        { col: 1, span: 1, cell: { text: "Start Date", bold: true, align: "center" } },
-        { col: 2, span: 1, cell: { text: "End Date", bold: true, align: "center" } },
+        { col: 0, span: 1, cell: { text: "Program Date", bold: true, nowrap: true } },
+        { col: 1, span: 1, cell: { text: "Start Date", bold: true, align: "center", nowrap: true } },
+        { col: 2, span: 1, cell: { text: "End Date", bold: true, align: "center", nowrap: true } },
       ]);
 
       // value row for dates
@@ -153,13 +168,13 @@ function generatePdfBuffer(data) {
 
       // Overall Grade | value (span 2)
       y = drawRowSpans(doc, x, y, infoW, [
-        { col: 0, span: 1, cell: { text: "Overall Grade", bold: true } },
+        { col: 0, span: 1, cell: { text: "Overall Grade", bold: true, nowrap: true } },
         { col: 1, span: 2, cell: { text: data.overallGrade || "" } },
       ]);
 
       // Final Result | value (span 2)
       y = drawRowSpans(doc, x, y, infoW, [
-        { col: 0, span: 1, cell: { text: "Final Result", bold: true } },
+        { col: 0, span: 1, cell: { text: "Final Result", bold: true, nowrap: true } },
         { col: 1, span: 2, cell: { text: data.finalResult || "" } },
       ]);
 
@@ -167,18 +182,17 @@ function generatePdfBuffer(data) {
 
       // ---- Results table ----
       if (data.variant === "marks") {
-        const w = [35, 140, 65, 65, 65, 72, 70]; // sums to 512 — resize to 468
-        // Rebalance to 468:
-        const ww = [30, 128, 60, 60, 60, 65, 65]; // 468
+        // Rebalanced to 468 total
+        const ww = [30, 128, 60, 60, 60, 65, 65];
         y = checkPageBreak(doc, y, 30);
         y = drawRow(doc, x, y, ww, [
-          { text: "Sl No.", bold: true, align: "center" },
-          { text: "Topics", bold: true },
-          { text: "Duration (Hr)", bold: true, align: "center" },
-          { text: "Total Marks", bold: true, align: "center" },
-          { text: "Pass Marks", bold: true, align: "center" },
-          { text: "Marks Gained", bold: true, align: "center" },
-          { text: "Grade", bold: true, align: "center" },
+          { text: "Sl No.", bold: true, align: "center", nowrap: true },
+          { text: "Topics", bold: true, nowrap: true },
+          { text: "Duration (Hr)", bold: true, align: "center", nowrap: true },
+          { text: "Total Marks", bold: true, align: "center", nowrap: true },
+          { text: "Pass Marks", bold: true, align: "center", nowrap: true },
+          { text: "Marks Gained", bold: true, align: "center", nowrap: true },
+          { text: "Grade", bold: true, align: "center", nowrap: true },
         ]);
         (data.rows || []).forEach((r, i) => {
           y = checkPageBreak(doc, y, 24);
@@ -193,16 +207,16 @@ function generatePdfBuffer(data) {
           ]);
         });
       } else {
-        // non-marks variant
-        const ww = [30, 148, 75, 75, 75, 65]; // sums to 468
+        // non-marks variant — widened Participation / Attendance columns
+        const ww = [30, 121, 87, 87, 80, 63]; // sums to 468
         y = checkPageBreak(doc, y, 30);
         y = drawRow(doc, x, y, ww, [
-          { text: "Sl No.", bold: true, align: "center" },
-          { text: "Program Name", bold: true },
-          { text: "Attendance", bold: true, align: "center" },
-          { text: "Participation", bold: true, align: "center" },
-          { text: "Assignment", bold: true, align: "center" },
-          { text: "Overall Grade", bold: true, align: "center" },
+          { text: "Sl No.", bold: true, align: "center", nowrap: true },
+          { text: "Program Name", bold: true, nowrap: true },
+          { text: "Attendance", bold: true, align: "center", nowrap: true },
+          { text: "Participation", bold: true, align: "center", nowrap: true },
+          { text: "Assignment", bold: true, align: "center", nowrap: true },
+          { text: "Overall Grade", bold: true, align: "center", nowrap: true },
         ]);
         (data.rows || []).forEach((r, i) => {
           y = checkPageBreak(doc, y, 24);
