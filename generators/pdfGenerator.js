@@ -234,7 +234,7 @@ function generatePdfBuffer(data) {
       // ---- Signature block ----
       y += 60;
       y = checkPageBreak(doc, y, 80);
-
+ 
       doc.font(FONT_BOLD).fontSize(FONT_SIZE).text(data.signatoryName || "", x, y);
       y += 18;
       doc.font(FONT_REGULAR).fontSize(FONT_SIZE).text(data.signatoryTitle || "", x, y);
