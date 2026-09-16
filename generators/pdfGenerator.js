@@ -212,7 +212,7 @@ function generatePdfBuffer(data) {
         y = checkPageBreak(doc, y, 30);
         y = drawRow(doc, x, y, ww, [
           { text: "Sl No.", bold: true, align: "center", nowrap: true },
-          { text: "Program Name", bold: true, nowrap: true },
+          { text: "Topics", bold: true, nowrap: true },
           { text: "Attendance", bold: true, align: "center", nowrap: true },
           { text: "Participation", bold: true, align: "center", nowrap: true },
           { text: "Assignment", bold: true, align: "center", nowrap: true },
@@ -222,7 +222,7 @@ function generatePdfBuffer(data) {
           y = checkPageBreak(doc, y, 24);
           y = drawRow(doc, x, y, ww, [
             { text: String(i + 1), bold: true, align: "center" },
-            { text: r.programName || "" },
+            { text: r.topic || "" },
             { text: r.attendance || "", align: "center" },
             { text: r.participation || "", align: "center" },
             { text: r.assignment || "", align: "center" },
